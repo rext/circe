@@ -352,7 +352,7 @@ lazy val scalajs = circeModule("scalajs", mima = None)
 
 lazy val scodecBase = circeCrossModule("scodec", mima = previousCirceVersion)
   .settings(
-    libraryDependencies += "org.scodec" %%% "scodec-bits" % "1.1.5"
+    libraryDependencies += "org.scodec" %%% "scodec-bits" % "1.1.6"
   )
   .dependsOn(coreBase, testsBase % Test)
 
