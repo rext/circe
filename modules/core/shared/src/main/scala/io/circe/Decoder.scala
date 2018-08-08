@@ -722,14 +722,32 @@ final object Decoder extends CollectionDecoders with TupleDecoders with ProductD
   /**
    * @group Decoding
    */
-  implicit final def decodeOption[A](implicit d: Decoder[A]): Decoder[Option[A]] = withReattempt {
-    case c: HCursor =>
-      if (c.value.isNull) rightNone else d(c) match {
-        case Right(a) => Right(Some(a))
-        case Left(df) => Left(df)
-      }
-    case c: FailedCursor =>
-      if (!c.incorrectFocus) rightNone else Left(DecodingFailure("[A]Option[A]", c.history))
+  implicit final def decodeOption[A](implicit d: Decoder[A]): Decoder[Option[A]] = new Decoder[Option[A]] {
+    override def apply(c: HCursor): Result[Option[A]] = tryDecode(c)
+
+    override def tryDecode(c: ACursor): Result[Option[A]] = c match {
+      case c: HCursor =>
+        if (c.value.isNull) rightNone else d(c) match {
+          case Right(a) => Right(Some(a))
+          case Left(df) => Left(df)
+        }
+      case c: FailedCursor =>
+        if (!c.incorrectFocus) rightNone else Left(DecodingFailure("[A]Option[A]", c.history))
+    }
+
+    override def decodeAccumulating(c: HCursor): AccumulatingDecoder.Result[Option[A]] = tryDecodeAccumulating(c)
+
+    override def tryDecodeAccumulating(c: ACursor): AccumulatingDecoder.Result[Option[A]] = c match {
+      case c: HCursor =>
+        if (c.value.isNull) Valid(None) else d.tryDecodeAccumulating(c) match {
+          case Valid(v) => Valid(Some(v))
+          case Invalid(df) => Invalid(df)
+        }
+      case c: FailedCursor =>
+        if (!c.incorrectFocus) Valid(None) else Invalid(
+          NonEmptyList.one(DecodingFailure("[A]Option[A]", c.history))
+        )
+    }
   }
 
   /**

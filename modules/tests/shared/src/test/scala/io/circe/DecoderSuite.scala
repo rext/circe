@@ -186,6 +186,29 @@ class DecoderSuite extends CirceSuite with LargeNumberDecoderTests with TableDri
     }
   }
 
+  "An optional decoder" should "accumulate errors of nested decoder" in {
+    val m1 = "Message 1"
+    val m2 = "Message 2"
+
+    trait Foo
+
+    implicit val fooEq: Eq[Foo] = (x: Foo, y: Foo) => true
+
+    val fooDecoder: Decoder[Foo] = new Decoder[Foo] {
+      override def apply(c: HCursor): Decoder.Result[Foo] = Right(new Foo {})
+
+      override def decodeAccumulating(c: HCursor): AccumulatingDecoder.Result[Foo] = Invalid(
+        NonEmptyList.of(DecodingFailure(m1, c.history), DecodingFailure(m2, c.history))
+      )
+    }
+
+    val fooOptionDecoder: Decoder[Option[Foo]] = Decoder.decodeOption(fooDecoder)
+
+    val expected = Invalid(NonEmptyList.of(DecodingFailure(m1, List()), DecodingFailure(m2, List())))
+    val actual = fooOptionDecoder.decodeAccumulating(Json.obj().hcursor)
+    assert(actual === expected)
+  }
+
   "instanceTry" should "provide instances that succeed or fail appropriately" in forAll { (json: Json) =>
     val exception = new Exception("Not an Int")
     val expected = json.hcursor.as[Int].leftMap(_ => DecodingFailure.fromThrowable(exception, Nil))
